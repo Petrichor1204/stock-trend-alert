@@ -1,13 +1,34 @@
 import asyncio
 import websockets
 import json
+import aio_pika
+from producer import publish_alert
 
 THRESHOLDS = {
-    "BTC-USD": 70000,
+    "BTC-USD": 100000,
     "ETH-USD": 5000,
 }
+async def publish_alert(channel, product, price, threshold):
+    alert = {
+        "product": product,
+        "price": price,
+        "threshold": threshold,
+    }
+
+    await channel.default_exchange.publish(
+        aio_pika.Message(body=json.dumps(alert).encode()),
+        routing_key = "alerts"
+    )
+
+    print(f"Published alert: {alert}")
+
 async def connect():
     url = "wss://advanced-trade-ws.coinbase.com"
+     
+    connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
+    channel = await connection.channel()
+
+    await channel.declare_queue("alerts")
 
     async with websockets.connect(url) as ws:
         subscribe = {
@@ -26,9 +47,9 @@ async def connect():
                         product = ticker.get("product_id")
                         price = float(ticker.get("price"))
 
-                        # print(f"{product}: ${price}")
+                        print(f"{product}: ${price}")
 
                         if product in THRESHOLDS:
                             if price >= THRESHOLDS[product]:
-                                print(f"ALERT: {product} hit ${price}!")
+                                await publish_alert(channel, product, price, THRESHOLDS[product])
 asyncio.run(connect())
