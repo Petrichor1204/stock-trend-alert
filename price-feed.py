@@ -5,7 +5,7 @@ import aio_pika
 from producer import publish_alert
 
 THRESHOLDS = {
-    "BTC-USD": 100000,
+    "BTC-USD": 60000,
     "ETH-USD": 5000,
 }
 async def publish_alert(channel, product, price, threshold):
