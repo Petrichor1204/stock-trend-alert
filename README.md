@@ -1,78 +1,47 @@
-# Stock Alert System
+# Real-Time Stock/Crypto Alert System
 
-A real-time crypto price alert system that streams live prices from Coinbase and publishes alerts via RabbitMQ when configurable thresholds are crossed.
+A distributed backend system that streams live cryptocurrency prices via WebSocket, 
+routes threshold breach events through a message queue, and enforces rate limiting 
+to prevent notification flooding.
 
-## How It Works
+## Architecture
 
-```
-Coinbase WebSocket  →  price-feed.py  →  RabbitMQ (alerts queue)  →  consumer.py
-```
+WebSocket Feed → price_feed.py → RabbitMQ → consumer.py → Redis Rate Limiter → Alert
 
-- **[price-feed.py](price-feed.py)** — connects to the Coinbase Advanced Trade WebSocket, monitors BTC-USD and ETH-USD, and publishes an alert whenever a price hits or exceeds its threshold
-- **[producer.py](producer.py)** — helper module that handles publishing alert messages to the RabbitMQ queue
-- **[consumer.py](consumer.py)** — listens on the RabbitMQ queue and prints incoming alerts
+## Tech Stack
 
-### Default Thresholds
+- Python (asyncio)
+- WebSockets (Coinbase Advanced Trade API)
+- RabbitMQ (message queue)
+- Redis (rate limiting)
+- Docker + Docker Compose
 
-| Asset   | Alert Price |
-|---------|-------------|
-| BTC-USD | $100,000    |
-| ETH-USD | $5,000      |
+## How To Run
 
-## Prerequisites
+1. Start RabbitMQ and Redis:
+   docker-compose up -d
 
-- Python 3.8+
-- RabbitMQ running locally on the default port (5672) with default credentials (`guest`/`guest`)
+2. Start the consumer in one terminal:
+   python consumer.py
 
-### Install RabbitMQ
+3. Start the price feed in another terminal:
+   python price_feed.py
 
-**macOS (Homebrew):**
-```bash
-brew install rabbitmq
-brew services start rabbitmq
-```
+## Configure Alerts
 
-**Docker:**
-```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
-```
-
-## Setup
-
-```bash
-# Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install aio-pika websockets
-```
-
-## Running
-
-Open two terminal windows (both with the venv activated).
-
-**Terminal 1 — start the consumer** (receives and prints alerts):
-```bash
-python consumer.py
-```
-
-**Terminal 2 — start the price feed** (connects to Coinbase and monitors prices):
-```bash
-python price-feed.py
-```
-
-You'll see live prices printed as they stream in. When BTC-USD hits $100,000 or ETH-USD hits $5,000, an alert is published to RabbitMQ and printed by the consumer.
-
-## Customizing Thresholds
-
-Edit the `THRESHOLDS` dict at the top of [price-feed.py](price-feed.py):
-
-```python
-THRESHOLDS = {
-    "BTC-USD": 100000,
-    "ETH-USD": 5000,
+Edit config.json to set your own thresholds:
+{
+    "alerts": [
+        { "product": "BTC-USD", "threshold": 100000 },
+        { "product": "ETH-USD", "threshold": 5000 }
+    ]
 }
-```
 
-You can also add any product ID supported by the Coinbase Advanced Trade WebSocket (e.g. `"SOL-USD": 300`). Make sure to add it to the `product_ids` list in the subscribe message as well.
+## Project Structure
+
+price_feed.py     — WebSocket connection, price streaming, threshold checking
+producer.py       — publishes alert events to RabbitMQ
+consumer.py       — reads from queue, enforces rate limiting, delivers alerts
+rate_limiter.py   — Redis backed rate limiter with TTL
+config.json       — user defined alert thresholds
+docker-compose.yml — spins up RabbitMQ and Redis with one command

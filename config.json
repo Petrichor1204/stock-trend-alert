@@ -1,0 +1,6 @@
+{
+  "alerts": [
+    {"product": "BTC-USD", "threshold": 100000},
+    {"product": "ETH-USD", "threshold": 5000}
+  ]
+}

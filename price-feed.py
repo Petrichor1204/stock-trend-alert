@@ -4,10 +4,11 @@ import json
 import aio_pika
 from producer import publish_alert
 
-THRESHOLDS = {
-    "BTC-USD": 60000,
-    "ETH-USD": 5000,
-}
+with open("config.json") as f:
+    config = json.load(f)
+
+THRESHOLDS = {alert["product"]: alert["threshold"] for alert in config["alerts"]}
+ 
 async def publish_alert(channel, product, price, threshold):
     alert = {
         "product": product,
@@ -24,7 +25,6 @@ async def publish_alert(channel, product, price, threshold):
 
 async def connect():
     url = "wss://advanced-trade-ws.coinbase.com"
-     
     connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
     channel = await connection.channel()
 
